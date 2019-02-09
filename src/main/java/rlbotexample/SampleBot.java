@@ -169,7 +169,7 @@ public class SampleBot implements Bot {
                 if (input.car.isSupersonic && input.car.hasWheelContact) {
                     plan = new Plan()
                             .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(1)))
-                            .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withPitch(-1)));
+                            .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withSteer(goLeft ? -1 : 1).withPitch(-1)));
                     return plan.getOutput(input, this);
                 } else {
                     plan = new Plan()
