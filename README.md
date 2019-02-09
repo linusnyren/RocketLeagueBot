@@ -1,4 +1,4 @@
-# RLBotJavaExample
+# A Rocket League Bot
 An example bot implemented in Java
 
 ## Video Guide
