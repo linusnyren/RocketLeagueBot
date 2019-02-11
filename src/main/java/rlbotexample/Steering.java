@@ -2,11 +2,15 @@ package rlbotexample;
 
 import rlbot.cppinterop.RLBotDll;
 import rlbot.flat.BallPrediction;
+import rlbot.flat.QuickChatSelection;
+import rlbot.manager.BotLoopRenderer;
+import rlbot.render.Renderer;
 import rlbotexample.input.CarData;
 import rlbotexample.output.ControlsOutput;
 import rlbotexample.vector.Vector2;
 import rlbotexample.vector.Vector3;
 
+import java.awt.*;
 import java.io.IOException;
 
 public class Steering {
@@ -23,12 +27,24 @@ public class Steering {
 
         // How far does the car need to rotate before it's pointing exactly at the ball?
         double steerCorrectionRadians = carDirection.correctionAngle(carToTarget);
-        boolean facingPostition = car.orientation.noseVector == position;
 
-        return new ControlsOutput()
-                .withSteer((float) (-steerCorrectionRadians * 2))
-                .withThrottle(1)
-                .withBoost(carToTarget.magnitude() > 3000);
+
+
+        boolean facingPostition = car.orientation.noseVector.angle(position) < 1.6;
+        if (facingPostition){
+            RLBotDll.sendQuickChat(car.team, false, QuickChatSelection.Information_IGotIt);
+            return new ControlsOutput()
+
+                    .withSteer((float) (-steerCorrectionRadians * 2))
+                    .withThrottle(1)
+                    .withBoost();
+        }
+        else {
+            return new ControlsOutput()
+                    .withSteer((float) (-steerCorrectionRadians * 2))
+                    .withThrottle(1)
+                    ;
+        }
     }
 
     public static ControlsOutput steerTowardAppointment(CarData car, Vector3 position, double arrivalTime) {

@@ -55,11 +55,16 @@ public class SampleBot implements Bot {
         // This is optional!
         drawDebugLines(input, myCar, goLeft);
         Renderer renderer = BotLoopRenderer.forBotLoop(this);
+        Vector3 nose = new Vector3(myCar.orientation.noseVector.x, myCar.orientation.noseVector.y, 0);
+        Vector3 ball = new Vector3(input.ball.position.x, input.ball.position.y, 0);
+
+
 
 
         try {
             if (RLBotDll.getFlatbufferPacket().players(input.car.team).isDemolished()){
                 RLBotDll.sendQuickChat(input.car.team, false, QuickChatSelection.Apologies_Cursing);
+
 
             }
         } catch (IOException e) {
@@ -70,6 +75,11 @@ public class SampleBot implements Bot {
         // This is also optional!
 
         while(true) {
+            try{
+            BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+            Vector3 ballLine = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 2).physics().location());
+            renderer.drawLine3d(Color.CYAN, input.ball.position, ballLine); } catch (IOException e){}
+
 
 
             if (plan != null) {
@@ -82,7 +92,6 @@ public class SampleBot implements Bot {
             }
 
             boolean isKickoff = input.ball.velocity.flatten().magnitude() < 1;
-
             if (isKickoff) {
                 renderer.drawString2d("Kickoff!", Color.white, new Point(10, 200), 2, 2);
                 if (input.car.position.magnitude() < 1100) {
@@ -103,12 +112,12 @@ public class SampleBot implements Bot {
 
 
                 boolean defend = Goal.getDefending(input.team).getCenter().distance(ballPath2) < 3000
-                                &&  myCar.orientation.noseVector != ballPath;
+                                &&  myCar.orientation.noseVector.angle(ballPath) > 1.6;
 
 
 
                 if (defend){
-                    renderer.drawString2d("Ball dist from center : " +input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter()), Color.white, new Point(10, 200), 2, 2);
+
                     RLBotDll.sendQuickChat(input.car.team, false, QuickChatSelection.Information_Defending);
                     renderer.drawString3d("Defending", Color.WHITE, myCar.position, 2, 2);
                     Vector3 goalPos = new Vector3(Goal.getDefending(input.team).getCenter().x, Goal.getDefending(input.team).getCenter().y, 0);
@@ -162,8 +171,8 @@ public class SampleBot implements Bot {
                     for (int index = 0; index < 5; index++) {
                         if (myCar.position.flatten().distance(BoostManager.getFullBoosts().get(index).getLocation().flatten()) < 1500) {
                             renderer.drawString3d("Going for BigBoost " +index, Color.WHITE, myCar.position, 2, 2);
-                            return Steering.steerTowardPosition(input.car, BoostManager.getFullBoosts().get(index).getLocation())
-                                    .withThrottle(1).withBoost();
+                            return Steering.steerTowardPosition(input.car, BoostManager.getFullBoosts().get(index).getLocation());
+
                         }
                     }
                 } catch (IOException e) {
@@ -189,8 +198,8 @@ public class SampleBot implements Bot {
                         for (int index = 0; index < 27; index++) {
                             if (myCar.position.flatten().distance(BoostManager.getSmallBoosts().get(index).getLocation().flatten()) < 500 && BoostManager.getSmallBoosts().get(index).isActive()) {
                                 renderer.drawString3d("Going for BoostPad " + index, Color.WHITE, myCar.position, 2, 2);
-                                return Steering.steerTowardPosition(input.car, BoostManager.getSmallBoosts().get(index).getLocation())
-                                        .withThrottle(1).withBoost();
+                                return Steering.steerTowardPosition(input.car, BoostManager.getSmallBoosts().get(index).getLocation());
+
                             }
                         }
                     } catch (IOException e) {
@@ -284,15 +293,11 @@ public class SampleBot implements Bot {
                     BallPrediction ballPrediction = RLBotDll.getBallPrediction();
                     renderer.drawLine3d(Color.CYAN, input.ball.position, myCar.position);
                     Vector3 location = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
-                    Vector3 ballLine = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 2).physics().location());
-                    renderer.drawLine3d(Color.CYAN, input.ball.position, ballLine);
+
                     renderer.drawString3d("BallChasing!", Color.WHITE, myCar.position, 2, 2);
-                        if (input.car.orientation.noseVector.flatten() == location.flatten()) {
-                            return Steering.steerTowardPosition(input.car, location).withBoost();
-                        }
-                        else {
+
                             return Steering.steerTowardPosition(input.car, location);
-                        }
+
                 } catch (IOException e) {
 
                 }
