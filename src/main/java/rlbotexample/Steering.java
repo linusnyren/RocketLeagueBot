@@ -1,9 +1,13 @@
 package rlbotexample;
 
+import rlbot.cppinterop.RLBotDll;
+import rlbot.flat.BallPrediction;
 import rlbotexample.input.CarData;
 import rlbotexample.output.ControlsOutput;
 import rlbotexample.vector.Vector2;
 import rlbotexample.vector.Vector3;
+
+import java.io.IOException;
 
 public class Steering {
 
@@ -19,6 +23,7 @@ public class Steering {
 
         // How far does the car need to rotate before it's pointing exactly at the ball?
         double steerCorrectionRadians = carDirection.correctionAngle(carToTarget);
+        boolean facingPostition = car.orientation.noseVector == position;
 
         return new ControlsOutput()
                 .withSteer((float) (-steerCorrectionRadians * 2))
@@ -44,10 +49,21 @@ public class Steering {
         double currentSpeed = car.velocity.magnitude();
         double throttle = currentSpeed > averageSpeedNeeded ? 0.0 : 1.0;
 
-        return new ControlsOutput()
-                .withSteer((float) (-steerCorrectionRadians * 2))
-                .withThrottle((float) throttle)
-                .withBoost(distanceToTarget > 3000);
+            boolean facingPosition = car.orientation.noseVector.flatten() == position.flatten();
+
+            if (facingPosition) {
+                return new ControlsOutput()
+                        .withSteer((float) (-steerCorrectionRadians * 2))
+                        .withThrottle((float) throttle)
+                        .withBoost();
+            } else {
+                return new ControlsOutput()
+                        .withSteer((float) (-steerCorrectionRadians * 2))
+                        .withThrottle((float) throttle);
+            }
+
+
     }
+
 
 }

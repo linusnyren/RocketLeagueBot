@@ -98,4 +98,12 @@ public class Vector2 {
     public static double angle(Vector2 a, Vector2 b) {
         return Math.abs(a.correctionAngle(b));
     }
+
+    public Vector2 orthogonal(boolean approachFromLeft) {
+        return null;
+    }
+
+    public Vector3 withZ(int i) {
+        return null;
+    }
 }

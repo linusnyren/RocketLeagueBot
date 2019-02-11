@@ -12,6 +12,7 @@ import rlbotexample.boost.BoostPad;
 import rlbotexample.dropshot.DropshotTile;
 import rlbotexample.dropshot.DropshotTileManager;
 import rlbotexample.dropshot.DropshotTileState;
+import rlbotexample.goals.Goal;
 import rlbotexample.input.BallData;
 import rlbotexample.input.CarData;
 import rlbotexample.input.DataPacket;
@@ -65,9 +66,12 @@ public class SampleBot implements Bot {
             e.printStackTrace();
         }
 
+
         // This is also optional!
 
         while(true) {
+
+
             if (plan != null) {
                 ControlsOutput planOutput = plan.getOutput(input, this);
                 if (planOutput == null) {
@@ -91,8 +95,63 @@ public class SampleBot implements Bot {
                 return Steering.steerTowardPosition(input.car, new Vector3())
                         .withBoost().withThrottle(1);
             }
+            try {
+                BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+                Vector3 ballPath = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
+                Vector2 ballPath2 = new Vector2(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().x(), ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().y());
 
-            boolean getBigBoost = myCar.boost < 10 && nearestBigBoost(input) == true;
+
+
+                boolean defend = Goal.getDefending(input.team).getCenter().distance(ballPath2) < 3000
+                                &&  myCar.orientation.noseVector != ballPath;
+
+
+
+                if (defend){
+                    renderer.drawString2d("Ball dist from center : " +input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter()), Color.white, new Point(10, 200), 2, 2);
+                    RLBotDll.sendQuickChat(input.car.team, false, QuickChatSelection.Information_Defending);
+                    renderer.drawString3d("Defending", Color.WHITE, myCar.position, 2, 2);
+                    Vector3 goalPos = new Vector3(Goal.getDefending(input.team).getCenter().x, Goal.getDefending(input.team).getCenter().y, 0);
+
+                    if (insideOwnGoal(input) && input.car.orientation.noseVector != ballPath){
+                        RLBotDll.sendQuickChat(input.car.team, false, QuickChatSelection.Information_Defending);
+                        return Steering.steerTowardPosition(input.car, ballPath).withSlide().withThrottle(1);
+                    }
+                    else {
+                        return Steering.steerTowardPosition(input.car, goalPos);
+                    }
+
+                }
+
+            }
+            catch (IOException e){
+
+            }
+            try {
+                BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+                boolean airShoot = input.ball.position.z > BALL_RADIUS*4
+                        && input.ball.position.flatten().distance(myCar.position.flatten())< 600
+                        && myCar.orientation.noseVector == new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
+                if (airShoot){
+                    renderer.drawString3d("airShoot!", Color.WHITE, myCar.position, 2, 2);
+                    RLBotDll.sendQuickChat(input.team, false, QuickChatSelection.Compliments_NiceShot);
+                    plan = new Plan()
+                            .withStep(new TimedAction(0.3, new ControlsOutput().withJump().withPitch(1)))
+                            .withStep(new TimedAction(0.05, new ControlsOutput()))
+                            .withStep(new TimedAction(0.3, new ControlsOutput().withJump().withBoost()))
+                            .withStep(new TimedAction(0.3, new ControlsOutput().withPitch(-1)));
+
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+
+            try {
+            BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+            boolean getBigBoost = myCar.boost < 10 && nearestBigBoost(input) == true
+                    &&  myCar.orientation.noseVector != new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
 
             if (getBigBoost) {
                 try {
@@ -112,26 +171,36 @@ public class SampleBot implements Bot {
                 }
 
             }
+            }
+            catch (IOException e){
 
-            boolean getTinyBoost = myCar.boost < 10 && input.car.position.flatten().distance(input.ball.position.flatten()) > 700;
+            }
+            try {
+                BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+                boolean getTinyBoost = myCar.boost < 10 && input.car.position.flatten().distance(input.ball.position.flatten()) > 700
+                        && myCar.orientation.noseVector != new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
 
-            if (getTinyBoost){
-                try {
-                    BoostManager.loadFieldInfo(RLBotDll.getFieldInfo());
-                    BoostManager.loadGameTickPacket(RLBotDll.getFlatbufferPacket());
-                    BoostManager.getSmallBoosts();
+                if (getTinyBoost) {
+                    try {
+                        BoostManager.loadFieldInfo(RLBotDll.getFieldInfo());
+                        BoostManager.loadGameTickPacket(RLBotDll.getFlatbufferPacket());
+                        BoostManager.getSmallBoosts();
 
-                    for (int index = 0; index < 27; index++) {
-                        if (myCar.position.flatten().distance(BoostManager.getSmallBoosts().get(index).getLocation().flatten()) < 500 && BoostManager.getSmallBoosts().get(index).isActive()) {
-                            renderer.drawString3d("Going for BoostPad " +index, Color.WHITE, myCar.position, 2, 2);
-                            return Steering.steerTowardPosition(input.car, BoostManager.getSmallBoosts().get(index).getLocation())
-                                    .withThrottle(1).withBoost();
+                        for (int index = 0; index < 27; index++) {
+                            if (myCar.position.flatten().distance(BoostManager.getSmallBoosts().get(index).getLocation().flatten()) < 500 && BoostManager.getSmallBoosts().get(index).isActive()) {
+                                renderer.drawString3d("Going for BoostPad " + index, Color.WHITE, myCar.position, 2, 2);
+                                return Steering.steerTowardPosition(input.car, BoostManager.getSmallBoosts().get(index).getLocation())
+                                        .withThrottle(1).withBoost();
+                            }
                         }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
 
+
+                }
+            }
+            catch (IOException e){
 
             }
             Vector3 ballPosition2 = input.ball.position;
@@ -162,51 +231,44 @@ public class SampleBot implements Bot {
                 return plan.getOutput(input, this);
             }
 
-
-
-            boolean jumpShot =  input.ball.velocity.flatten().x - input.car.velocity.flatten().x > 200
-                    && input.ball.velocity.flatten().x/input.car.velocity.flatten().x > -1
-                    && ballPosition2.flatten().distance(input.car.position.flatten()) > -100
-                    && ballPosition2.flatten().distance(input.car.position.flatten()) < 100;
-
-            if (jumpShot){
-                renderer.drawString3d("Can JumpShoot!", Color.WHITE, myCar.position, 2, 2);
-                plan = new Plan()
-                        .withStep(new TimedAction(0.05, new ControlsOutput().withJump().withPitch(1).withBoost()))
+            try {
+                BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+                boolean canShootBall = (ballPosition2.flatten().distance(input.car.position.flatten()) < 300
+                        && ballPosition2.flatten().distance(input.car.position.flatten()) > -300
+                        && ballPosition2.z < BALL_RADIUS * 7
+                        && input.car.velocity.flatten().x > input.ball.velocity.flatten().x
+                        && myCar.orientation.noseVector == new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location()))
                 ;
+                if (canShootBall) {
+                    renderer.drawString3d("Can Shoot!", Color.WHITE, myCar.position, 2, 2);
+                    if (input.car.isSupersonic && input.car.hasWheelContact) {
+                        if (ballPosition2.y > BALL_RADIUS *4) {
 
-            }
-
-            boolean canShootBall = (ballPosition2.flatten().distance(input.car.position.flatten()) < 300
-                    && ballPosition2.flatten().distance(input.car.position.flatten()) > -300
-                    && ballPosition2.z < BALL_RADIUS * 7
-                    && input.car.velocity.flatten().x > input.ball.velocity.flatten().x);
-
-            if (canShootBall) {
-                renderer.drawString3d("Can Shoot!", Color.WHITE, myCar.position, 2, 2);
-                if (input.car.isSupersonic && input.car.hasWheelContact) {
-                    if (ballPosition2.y > BALL_RADIUS *4) {
-
+                            plan = new Plan()
+                                    .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(1)))
+                                    .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withSteer(goLeft ? -1 : 1).withPitch(-1)));
+                            return plan.getOutput(input, this);
+                        }
+                        else {
+                            RLBotDll.sendQuickChat(input.team, false, QuickChatSelection.Custom_Toxic_404NoSkill);
+                            plan = new Plan()
+                                    .withStep(new TimedAction(0.1, new ControlsOutput().withJump().withPitch(1).withBoost()))
+                                    .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withJump().withPitch(-1)));
+                            return plan.getOutput(input, this);
+                        }
+                    } else {
                         plan = new Plan()
-                                .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(1)))
-                                .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withSteer(goLeft ? -1 : 1).withPitch(-1)));
+                                .withStep(new TimedAction(0.2, new ControlsOutput().withJump()))
+                                .withStep(new TimedAction(0.02, new ControlsOutput()))
+                                .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(-1)));
                         return plan.getOutput(input, this);
                     }
-                    else {
-                        RLBotDll.sendQuickChat(input.team, false, QuickChatSelection.Custom_Toxic_404NoSkill);
-                        plan = new Plan()
-                                .withStep(new TimedAction(0.1, new ControlsOutput().withJump().withPitch(1).withBoost()))
-                                .withStep(new TimedAction(0.04, new ControlsOutput().withBoost().withJump().withPitch(-1)));
-                        return plan.getOutput(input, this);
-                    }
-                } else {
-                    plan = new Plan()
-                            .withStep(new TimedAction(0.2, new ControlsOutput().withJump()))
-                            .withStep(new TimedAction(0.02, new ControlsOutput()))
-                            .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(-1)));
-                    return plan.getOutput(input, this);
                 }
             }
+            catch (IOException e){
+                e.printStackTrace();
+            }
+
 
             boolean toHigh = input.ball.position.z > 700 && ballPosition2.flatten().distance(input.car.position.flatten()) < 300;
 
@@ -217,26 +279,51 @@ public class SampleBot implements Bot {
             }
 
             else {
+
                 try {
-                    final BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+                    BallPrediction ballPrediction = RLBotDll.getBallPrediction();
                     renderer.drawLine3d(Color.CYAN, input.ball.position, myCar.position);
                     Vector3 location = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
-                    renderer.drawLine3d(Color.CYAN, input.ball.position, location);
+                    Vector3 ballLine = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 2).physics().location());
+                    renderer.drawLine3d(Color.CYAN, input.ball.position, ballLine);
                     renderer.drawString3d("BallChasing!", Color.WHITE, myCar.position, 2, 2);
-
-                    return Steering.steerTowardPosition(input.car, location).withThrottle(1).withBoost();
-
+                        if (input.car.orientation.noseVector.flatten() == location.flatten()) {
+                            return Steering.steerTowardPosition(input.car, location).withBoost();
+                        }
+                        else {
+                            return Steering.steerTowardPosition(input.car, location);
+                        }
                 } catch (IOException e) {
-                    // Ignore
+
                 }
-
-
-
             }
-
 
         }
 
+    }
+    public boolean towardsMyGoal(DataPacket input){
+        try {
+            BallPrediction ballPrediction = RLBotDll.getBallPrediction();
+            Vector2 towardsGoal = new Vector2(ballPrediction.slices(ballPrediction.slicesLength() / 2).physics().location().x(), ballPrediction.slices(ballPrediction.slicesLength() / 2).physics().location().y());
+            Goal myGoal = Goal.getDefending(input.team);
+            Vector2 myGoalLocation = myGoal.getCenter().scaled(1000);
+            if (towardsGoal == myGoalLocation) {
+                return true;
+            }
+            else {return false;}
+
+        }
+        catch(IOException e){return false;}
+
+
+
+    }
+
+    public boolean insideOwnGoal(DataPacket input){
+        if (input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter()) < 300){
+            return true;
+        }
+        else return false;
     }
     public boolean nearestBigBoost(DataPacket input){
 
