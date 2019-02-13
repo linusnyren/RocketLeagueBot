@@ -104,15 +104,17 @@ public class SampleBot implements Bot {
                 return Steering.steerTowardPosition(input.car, new Vector3())
                         .withBoost().withThrottle(1);
             }
+
+
             try {
                 BallPrediction ballPrediction = RLBotDll.getBallPrediction();
                 Vector3 ballPath = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
                 Vector2 ballPath2 = new Vector2(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().x(), ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().y());
 
 
-
                 boolean defend = Goal.getDefending(input.team).getCenter().distance(ballPath2) < 3000
-                                &&  myCar.orientation.noseVector.angle(ballPath) > 1.6;
+                                &&  myCar.orientation.noseVector.angle(ballPath) > 1.6
+                                && input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter()) < input.car.position.flatten().distance(ballPath2);
 
 
 
@@ -246,12 +248,14 @@ public class SampleBot implements Bot {
                         && ballPosition2.flatten().distance(input.car.position.flatten()) > -300
                         && ballPosition2.z < BALL_RADIUS * 7
                         && input.car.velocity.flatten().x > input.ball.velocity.flatten().x
-                        && myCar.orientation.noseVector == new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location()))
-                ;
+                        && myCar.orientation.noseVector.angle(new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location())) < 1)
+                        && input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter()) > input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter())
+                        ;
+
                 if (canShootBall) {
                     renderer.drawString3d("Can Shoot!", Color.WHITE, myCar.position, 2, 2);
                     if (input.car.isSupersonic && input.car.hasWheelContact) {
-                        if (ballPosition2.y > BALL_RADIUS *4) {
+                        if (ballPosition2.y > BALL_RADIUS *2) {
 
                             plan = new Plan()
                                     .withStep(new TimedAction(0.04, new ControlsOutput().withJump().withPitch(1)))
@@ -290,10 +294,11 @@ public class SampleBot implements Bot {
             else {
 
                 try {
+
                     BallPrediction ballPrediction = RLBotDll.getBallPrediction();
                     renderer.drawLine3d(Color.CYAN, input.ball.position, myCar.position);
                     Vector3 location = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
-
+                    renderer.drawString2d("Nose to ball angle" +input.car.orientation.noseVector.angle(new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location())), Color.white, new Point(10, 200), 2, 2);
                     renderer.drawString3d("BallChasing!", Color.WHITE, myCar.position, 2, 2);
 
                             return Steering.steerTowardPosition(input.car, location);

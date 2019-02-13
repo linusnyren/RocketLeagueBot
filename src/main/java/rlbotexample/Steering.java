@@ -32,7 +32,7 @@ public class Steering {
 
         boolean facingPostition = car.orientation.noseVector.angle(position) < 1.6;
         if (facingPostition){
-            RLBotDll.sendQuickChat(car.team, false, QuickChatSelection.Information_IGotIt);
+
             return new ControlsOutput()
 
                     .withSteer((float) (-steerCorrectionRadians * 2))
