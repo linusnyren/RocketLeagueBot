@@ -91,10 +91,12 @@ public class SampleBot implements Bot {
                 }
             }
 
-            boolean isKickoff = input.ball.velocity.flatten().magnitude() < 1;
+            boolean isKickoff = input.ball.velocity.flatten().magnitude() < 1
+                    && input.ball.position.x == 0
+                    && input.ball.position.y == 0;
             if (isKickoff) {
                 renderer.drawString2d("Kickoff!", Color.white, new Point(10, 200), 2, 2);
-                if (input.car.position.magnitude() < 1100) {
+                if (input.car.position.magnitude() < 1200) {
                     plan = new Plan()
                             .withStep(new TimedAction(0.1, new ControlsOutput().withJump()))
                             .withStep(new TimedAction(0.05, new ControlsOutput()))
@@ -110,12 +112,13 @@ public class SampleBot implements Bot {
                 BallPrediction ballPrediction = RLBotDll.getBallPrediction();
                 Vector3 ballPath = new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
                 Vector2 ballPath2 = new Vector2(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().x(), ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location().y());
-
+                double ballToMyGoal = input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter());
+                double carDistToBallPath = input.car.position.flatten().distance(ballPath2);
 
                 boolean defend = Goal.getDefending(input.team).getCenter().distance(ballPath2) < 3000
                                 &&  myCar.orientation.noseVector.angle(ballPath) > 1.6
-                                && input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter()) < input.car.position.flatten().distance(ballPath2);
-
+                                &&  ballToMyGoal< carDistToBallPath
+                                ;
 
 
                 if (defend){
@@ -124,7 +127,7 @@ public class SampleBot implements Bot {
                     renderer.drawString3d("Defending", Color.WHITE, myCar.position, 2, 2);
                     Vector3 goalPos = new Vector3(Goal.getDefending(input.team).getCenter().x, Goal.getDefending(input.team).getCenter().y, 0);
 
-                    if (insideOwnGoal(input) && input.car.orientation.noseVector != ballPath){
+                    if (insideOwnGoal(input) && input.car.orientation.noseVector.angle(ballPath) > 1.6){
                         RLBotDll.sendQuickChat(input.car.team, false, QuickChatSelection.Information_Defending);
                         return Steering.steerTowardPosition(input.car, ballPath).withSlide().withThrottle(1);
                     }
@@ -140,17 +143,21 @@ public class SampleBot implements Bot {
             }
             try {
                 BallPrediction ballPrediction = RLBotDll.getBallPrediction();
-                boolean airShoot = input.ball.position.z > BALL_RADIUS*4
-                        && input.ball.position.flatten().distance(myCar.position.flatten())< 600
-                        && myCar.orientation.noseVector == new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
+
+                boolean airShoot = input.ball.position.z > BALL_RADIUS*3
+                        && input.ball.position.z < BALL_RADIUS * 4
+                        && input.ball.position.flatten().distance(myCar.position.flatten())< 400
+                        && myCar.orientation.noseVector.angle(new Vector3(ballPrediction.slices(5).physics().location())) < 1;
+
                 if (airShoot){
                     renderer.drawString3d("airShoot!", Color.WHITE, myCar.position, 2, 2);
                     RLBotDll.sendQuickChat(input.team, false, QuickChatSelection.Compliments_NiceShot);
+
                     plan = new Plan()
                             .withStep(new TimedAction(0.3, new ControlsOutput().withJump().withPitch(1)))
-                            .withStep(new TimedAction(0.05, new ControlsOutput()))
-                            .withStep(new TimedAction(0.3, new ControlsOutput().withJump().withBoost()))
-                            .withStep(new TimedAction(0.3, new ControlsOutput().withPitch(-1)));
+                            .withStep(new TimedAction(0.07, new ControlsOutput().withBoost()))
+                            .withStep(new TimedAction(0.3, new ControlsOutput().withJump().withPitch(-1)));
+
 
                 }
 
@@ -162,7 +169,8 @@ public class SampleBot implements Bot {
             try {
             BallPrediction ballPrediction = RLBotDll.getBallPrediction();
             boolean getBigBoost = myCar.boost < 10 && nearestBigBoost(input) == true
-                    &&  myCar.orientation.noseVector != new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location());
+                    &&  myCar.orientation.noseVector != new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location())
+                   ;
 
             if (getBigBoost) {
                 try {
@@ -243,13 +251,12 @@ public class SampleBot implements Bot {
             }
 
             try {
+                double ballDistToMyGoal = input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter());
+                double carDistToMyGoal = input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter());
+
                 BallPrediction ballPrediction = RLBotDll.getBallPrediction();
-                boolean canShootBall = (ballPosition2.flatten().distance(input.car.position.flatten()) < 300
-                        && ballPosition2.flatten().distance(input.car.position.flatten()) > -300
-                        && ballPosition2.z < BALL_RADIUS * 7
-                        && input.car.velocity.flatten().x > input.ball.velocity.flatten().x
-                        && myCar.orientation.noseVector.angle(new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location())) < 1)
-                        && input.ball.position.flatten().distance(Goal.getDefending(input.team).getCenter()) > input.car.position.flatten().distance(Goal.getDefending(input.team).getCenter())
+                boolean canShootBall = myCar.orientation.noseVector.angle(new Vector3(ballPrediction.slices(ballPrediction.slicesLength() / 10).physics().location())) < 1
+                        && ballDistToMyGoal < carDistToMyGoal
                         ;
 
                 if (canShootBall) {

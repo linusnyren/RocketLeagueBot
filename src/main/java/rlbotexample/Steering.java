@@ -30,8 +30,8 @@ public class Steering {
 
 
 
-        boolean facingPostition = car.orientation.noseVector.angle(position) < 1.6;
-        if (facingPostition){
+        boolean facingPosition = car.orientation.noseVector.angle(position) < 1.6;
+        if (facingPosition){
 
             return new ControlsOutput()
 
@@ -67,19 +67,11 @@ public class Steering {
 
             boolean facingPosition = car.orientation.noseVector.flatten() == position.flatten();
 
-            if (facingPosition) {
+
                 return new ControlsOutput()
                         .withSteer((float) (-steerCorrectionRadians * 2))
                         .withThrottle((float) throttle)
                         .withBoost();
-            } else {
-                return new ControlsOutput()
-                        .withSteer((float) (-steerCorrectionRadians * 2))
-                        .withThrottle((float) throttle);
-            }
-
-
     }
-
 
 }
